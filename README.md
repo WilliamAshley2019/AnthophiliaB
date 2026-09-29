@@ -4,3 +4,5 @@ This version is the start of attempts to load Fruityloops Wasp presets. Part of 
 
 TO DO. I will continue to experiment with the GUI and audio character of the plugin. While it is stemming from the WASP synth from the 1970s and aims to honour the
 heritate of stuff that was based from it overtime its currently also going in its own direction.
+
+Need to update the highpass filter for distortion
