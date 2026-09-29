@@ -4,7 +4,8 @@
 //==============================================================================
 // WaspFlPresetImporter
 //This was an attempt to somehow get was presets into Anthophilia it is mostly untested some work may still need apply.
-//testing is requiried this is a work in progress
+//testing is requiried this is a work in progress - I don't actually know if this information or process is correct
+// Just need to see if anything sticks with it or I find more people who understand the .fst data in detail.
 //==============================================================================
 
 namespace WaspFst
@@ -177,14 +178,12 @@ namespace WaspFst
         }
 
         auto events = readEvents (fldt->data);
-
-        // Version must be read first since string decoding depends on it.
+ 
         for (auto& ev : events)
         {
             if (ev.id == 199) // Version
             {
-                // Version itself is version-independent (always readable as
-                // ASCII per real-world captures so far) — read raw ASCII here.
+        
                 juce::String verStr = juce::String::fromUTF8 ((const char*) ev.raw.getData(), (int) ev.raw.getSize());
                 while (verStr.isNotEmpty() && verStr.getLastCharacter() == 0)
                     verStr = verStr.dropLastCharacters (1);
