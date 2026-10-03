@@ -13,7 +13,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout WASPAlphaAudioProcessor::cre
     // Osc 1
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { OSC1_SHAPE, 1 }, "Osc-1 Shape",
-        juce::StringArray { "Saw", "Square", "Triangle", "Sine", "303-Saw" }, 0));
+        juce::StringArray { "Saw", "Square", "Triangle", "Sine" }, 0));
     layout.add (std::make_unique<juce::AudioParameterInt> (
         juce::ParameterID { OSC1_COARSE, 1 }, "Osc-1 Coarse", -24, 24, 0));
     layout.add (std::make_unique<juce::AudioParameterFloat> (
@@ -23,7 +23,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout WASPAlphaAudioProcessor::cre
     // Osc 2
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { OSC2_SHAPE, 1 }, "Osc-2 Shape",
-        juce::StringArray { "Saw", "Square", "Triangle", "Sine", "303-Saw" }, 0));
+        juce::StringArray { "Saw", "Square", "Triangle", "Sine" }, 0));
     layout.add (std::make_unique<juce::AudioParameterInt> (
         juce::ParameterID { OSC2_COARSE, 1 }, "Osc-2 Coarse", -24, 24, 0));
     layout.add (std::make_unique<juce::AudioParameterFloat> (
@@ -120,22 +120,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout WASPAlphaAudioProcessor::cre
         juce::ParameterID { FLT_PARALLEL_MIX, 1 }, "Filter Parallel Mix",
         juce::NormalisableRange<float> (0.0f, 1.0f, 0.001f), 0.5f)); // 0 = all Filter1, 1 = all Filter2
 
-    // Filter model: Ladder (default, unchanged behaviour) vs Chamberlin SVF
-    // (TS-404/303-style acid character). Independent per filter.
-    layout.add (std::make_unique<juce::AudioParameterChoice> (
-        juce::ParameterID { FLT_MODEL, 1 }, "Filter Model",
-        juce::StringArray { "Ladder", "Chamberlin" }, 0));
-    layout.add (std::make_unique<juce::AudioParameterChoice> (
-        juce::ParameterID { FLT2_MODEL, 1 }, "Filter 2 Model",
-        juce::StringArray { "Ladder", "Chamberlin" }, 0));
-
     // LFO 1
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { LFO1_SHAPE, 1 }, "Lfo-1 Shape",
         juce::StringArray { "Sine", "Triangle", "Saw", "RevSaw", "Square", "S&H" }, 0));
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { LFO1_TARGET, 1 }, "Lfo-1 Target",
-        juce::StringArray { "Pitch", "Osc1 Pitch", "Osc2 Pitch", "Pulse Width", "Filter", "Amp", "Resonance" }, 0));
+        juce::StringArray { "Pitch", "Osc1 Pitch", "Osc2 Pitch", "Pulse Width", "Filter", "Amp" }, 0));
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { LFO1_AMOUNT, 1 }, "Lfo-1 Amount",
         juce::NormalisableRange<float> (0.0f, 1.0f, 0.001f), 0.0f));
@@ -153,7 +144,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout WASPAlphaAudioProcessor::cre
         juce::StringArray { "Sine", "Triangle", "Saw", "RevSaw", "Square", "S&H" }, 0));
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { LFO2_TARGET, 1 }, "Lfo-2 Target",
-        juce::StringArray { "Pitch", "Osc1 Pitch", "Osc2 Pitch", "Pulse Width", "Filter", "Amp", "Resonance" }, 0));
+        juce::StringArray { "Pitch", "Osc1 Pitch", "Osc2 Pitch", "Pulse Width", "Filter", "Amp" }, 0));
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { LFO2_AMOUNT, 1 }, "Lfo-2 Amount",
         juce::NormalisableRange<float> (0.0f, 1.0f, 0.001f), 0.0f));
@@ -177,9 +168,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout WASPAlphaAudioProcessor::cre
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { DIST_MIX, 1 }, "Dist Mix",
         juce::NormalisableRange<float> (0.0f, 1.0f, 0.001f), 1.0f)); // 1.0 = fully wet, matches old (only) behaviour
-    layout.add (std::make_unique<juce::AudioParameterChoice> (
-        juce::ParameterID { DIST_TYPE, 1 }, "Dist Type",
-        juce::StringArray { "Soft", "Hard" }, 0)); // 0=existing softClip curve, 1=hard digital clip (TS-404 style)
 
     // Character
     layout.add (std::make_unique<juce::AudioParameterFloat> (
@@ -308,8 +296,6 @@ void WASPAlphaAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
         v.noteHeld  = false;
         v.filter.reset();
         v.filter2.reset();
-        v.chamberlinF.reset();
-        v.chamberlinF2.reset();
     }
 
     lfo1.setSampleRate (sampleRate);
@@ -418,8 +404,6 @@ void WASPAlphaAudioProcessor::handleMidiEvent (const juce::MidiMessage& msg)
         voices[vi].noteOn (note, freq, vel);
         voices[vi].filter.reset();
         voices[vi].filter2.reset();
-        voices[vi].chamberlinF.reset();
-        voices[vi].chamberlinF2.reset();
     }
     else if (msg.isNoteOff())
     {
@@ -448,26 +432,6 @@ static float softClip (float x, float drive)
     float ax = std::abs (driven);
     float z  = driven * (27.0f + ax * ax) / (27.0f + 9.0f * ax * ax);
     return z / drive;
-}
-
-// Hard digital clip — the blunter, more aggressive distortion character
-// associated with late-90s software synths (TS-404 included), which
-// favoured flat-out sample clamping over smooth analog-style saturation.
-static float hardClip (float x, float drive)
-{
-    const float driven = x * drive;
-    return juce::jlimit (-1.0f, 1.0f, driven) / drive;
-}
-
-// Dispatches a single filter stage to either the Moog-style ladder (existing
-// WaspFilter) or the Chamberlin SVF, per the FLT_MODEL/FLT2_MODEL choice —
-// keeps the routing switch below from having to duplicate this branch four times.
-static float processFilterStage (int model, WaspFilter& ladder, ChamberlinFilter& cham,
-                                  float in, float cutoff, float reso, int type, bool cmos)
-{
-    if (model == 1)
-        return cham.process (in, cutoff, reso, type);
-    return ladder.process (in, cutoff, reso, type, cmos);
 }
 
 //==============================================================================
@@ -523,8 +487,6 @@ void WASPAlphaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     float pFlt2Env  = apvts.getRawParameterValue (FLT2_ENV_AMT)->load();
     int   pFltRoute = (int) apvts.getRawParameterValue (FLT_ROUTING)->load();
     float pFltParMix = apvts.getRawParameterValue (FLT_PARALLEL_MIX)->load();
-    int   pFltModel  = (int) apvts.getRawParameterValue (FLT_MODEL)->load();
-    int   pFlt2Model = (int) apvts.getRawParameterValue (FLT2_MODEL)->load();
 
     float pDelayTimeMs = apvts.getRawParameterValue (DELAY_TIME_MS)->load();
     float pDelayFb     = apvts.getRawParameterValue (DELAY_FEEDBACK)->load();
@@ -544,7 +506,6 @@ void WASPAlphaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     float pDistOn   = apvts.getRawParameterValue (DIST_ON)->load();
     float pDistDrv  = apvts.getRawParameterValue (DIST_DRIVE)->load();
-    int   pDistType = (int) apvts.getRawParameterValue (DIST_TYPE)->load();
     float pDistTone = apvts.getRawParameterValue (DIST_TONE)->load();
     float pDistMix  = apvts.getRawParameterValue (DIST_MIX)->load();
     float pDualV    = apvts.getRawParameterValue (DUAL_VOICE)->load();
@@ -769,46 +730,29 @@ void WASPAlphaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             if ((int)pL2Target == 4) cutoffFlt2 *= std::pow (2.0, lfo2ValLocal * 2.0);
             cutoffFlt2 = juce::jlimit (20.0, (currentSampleRate * 0.49), cutoffFlt2);
 
-            // LFO -> Resonance (target index 6). Scaled at 0.5 so a full-depth
-            // LFO sweeps roughly the whole 0..1 resonance range rather than
-            // immediately pinning it — matches the scale used for cutoff/PW mods.
-            float resoFlt  = pReso;
-            float resoFlt2 = pReso2;
-            if ((int)pL1Target == 6) resoFlt  = juce::jlimit (0.0f, 1.0f, resoFlt  + (float)lfo1ValLocal * 0.5f);
-            if ((int)pL2Target == 6) resoFlt  = juce::jlimit (0.0f, 1.0f, resoFlt  + (float)lfo2ValLocal * 0.5f);
-            if ((int)pL1Target == 6) resoFlt2 = juce::jlimit (0.0f, 1.0f, resoFlt2 + (float)lfo1ValLocal * 0.5f);
-            if ((int)pL2Target == 6) resoFlt2 = juce::jlimit (0.0f, 1.0f, resoFlt2 + (float)lfo2ValLocal * 0.5f);
-
-            // Call filter(s), dispatching each stage to Ladder or Chamberlin per
-            // FLT_MODEL/FLT2_MODEL. FLT_ROUTING: 0=Filter1 only, 1=Filter2 only,
-            // 2=Series (1->2), 3=Parallel (blended)
+            // Call filter(s) with CMOS mode flag — preserves original t1 path when false.
+            // FLT_ROUTING: 0=Filter1 only, 1=Filter2 only, 2=Series (1->2), 3=Parallel (blended)
             float filtered;
             switch (pFltRoute)
             {
                 case 1: // Filter 2 only
-                    filtered = processFilterStage (pFlt2Model, v.filter2, v.chamberlinF2,
-                                                    waspSig, (float)cutoffFlt2, resoFlt2, (int)pFlt2Type, pCmos);
+                    filtered = v.filter2.process (waspSig, (float)cutoffFlt2, pReso2, (int)pFlt2Type, pCmos);
                     break;
                 case 2: // Series: Filter 1 into Filter 2
                 {
-                    float stage1 = processFilterStage (pFltModel, v.filter, v.chamberlinF,
-                                                         waspSig, (float)cutoffFlt, resoFlt, (int)pFltType, pCmos);
-                    filtered = processFilterStage (pFlt2Model, v.filter2, v.chamberlinF2,
-                                                    stage1, (float)cutoffFlt2, resoFlt2, (int)pFlt2Type, pCmos);
+                    float stage1 = v.filter.process (waspSig, (float)cutoffFlt, pReso, (int)pFltType, pCmos);
+                    filtered = v.filter2.process (stage1, (float)cutoffFlt2, pReso2, (int)pFlt2Type, pCmos);
                     break;
                 }
                 case 3: // Parallel: both filters fed the same dry signal, blended
                 {
-                    float stage1 = processFilterStage (pFltModel, v.filter, v.chamberlinF,
-                                                         waspSig, (float)cutoffFlt, resoFlt, (int)pFltType, pCmos);
-                    float stage2 = processFilterStage (pFlt2Model, v.filter2, v.chamberlinF2,
-                                                        waspSig, (float)cutoffFlt2, resoFlt2, (int)pFlt2Type, pCmos);
+                    float stage1 = v.filter.process (waspSig, (float)cutoffFlt, pReso, (int)pFltType, pCmos);
+                    float stage2 = v.filter2.process (waspSig, (float)cutoffFlt2, pReso2, (int)pFlt2Type, pCmos);
                     filtered = stage1 * (1.0f - pFltParMix) + stage2 * pFltParMix;
                     break;
                 }
                 default: // Filter 1 only
-                    filtered = processFilterStage (pFltModel, v.filter, v.chamberlinF,
-                                                     waspSig, (float)cutoffFlt, resoFlt, (int)pFltType, pCmos);
+                    filtered = v.filter.process (waspSig, (float)cutoffFlt, pReso, (int)pFltType, pCmos);
                     break;
             }
 
@@ -879,16 +823,8 @@ void WASPAlphaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         {
             distDryL[(size_t) i] = left[i];
             distDryR[(size_t) i] = right[i];
-            if (pDistType == 1)
-            {
-                left[i]  = hardClip (left[i],  pDistDrv);
-                right[i] = hardClip (right[i], pDistDrv);
-            }
-            else
-            {
-                left[i]  = softClip (left[i],  pDistDrv);
-                right[i] = softClip (right[i], pDistDrv);
-            }
+            left[i]  = softClip (left[i],  pDistDrv);
+            right[i] = softClip (right[i], pDistDrv);
         }
 
         // Only recompute coefficients (which heap-allocate internally via
