@@ -1,9 +1,9 @@
 UPDATE 2026-10-02
 
-Oh wow just got to say I am living how the most recent build Dronerr sounds with an expansion on the osc types and stuff. There is a major error with chamberlain filter above about 6700 that causes it to clip out I need to fix that but otherwise loving how this is sounding :)
+Oh wow just got to say I am loving how the most recent build Dronerr sounds with an expansion on the osc types and stuff. There is a major error with chamberlain filter above about 6700 that causes it to clip out I need to fix that but otherwise loving how this is sounding :)
 
 The Drive function still isn't implemented properly.
-
+Lots of little things on this to improve but the overall sound profile is actually fairly nice IMHO.
 
 
 
